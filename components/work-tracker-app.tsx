@@ -706,6 +706,24 @@ export function WorkTrackerApp() {
     }
   }, []);
 
+  const handleThemeToggle = useCallback(async () => {
+    const nextDarkMode = !darkModeEnabled;
+    setDarkModeEnabled(nextDarkMode);
+
+    if (!currentUser || !profile) {
+      return;
+    }
+
+    try {
+      await saveUserProfile(currentUser.uid, profile.hourlyRate, {
+        ...profile.settings,
+        darkMode: nextDarkMode,
+      });
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    }
+  }, [currentUser, darkModeEnabled, profile]);
+
   const exportCsv = useCallback(() => {
     if (logs.length === 0) {
       setError("No logs available to export.");
@@ -966,6 +984,9 @@ export function WorkTrackerApp() {
         {currentUser && (
           <div className="account-block">
             <p>{accountDisplayName}</p>
+            <button type="button" className="btn btn-ghost" onClick={handleThemeToggle}>
+              {darkModeEnabled ? "Light Mode" : "Night Mode"}
+            </button>
             <details className="menu-dropdown">
               <summary>Menu</summary>
               <div className="menu-dropdown-items">
