@@ -79,6 +79,15 @@ export interface ManualLogInput {
   endTime: Date;
 }
 
+export interface UpdateTimeLogInput {
+  projectId: string | null;
+  projectName: string;
+  taskName: string;
+  note: string;
+  startTime: Date;
+  endTime: Date;
+}
+
 export interface DailyReportPoint {
   dayKey: string;
   dayLabel: string;

@@ -2,6 +2,7 @@ import {
   Timestamp,
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   limit,
@@ -26,6 +27,7 @@ import {
   type SupportedCurrency,
   type TimeLog,
   type TimeProject,
+  type UpdateTimeLogInput,
   type UserProfile,
   type UserSettings,
 } from "@/lib/tracker-types";
@@ -462,4 +464,36 @@ export async function clockOut(log: TimeLog, clockOutAt: Date): Promise<void> {
     status: "completed",
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function updateTimeLog(log: TimeLog, input: UpdateTimeLogInput): Promise<void> {
+  if (input.endTime <= input.startTime) {
+    throw new Error("End time must be later than start time.");
+  }
+
+  const database = requireDb();
+  const grossMinutes = Math.max(
+    0,
+    Math.floor((input.endTime.getTime() - input.startTime.getTime()) / 60_000),
+  );
+  const breakMinutes = Math.max(0, log.breakMinutes);
+  const totalMinutes = Math.max(0, grossMinutes - breakMinutes);
+
+  await updateDoc(doc(database, TIME_LOGS_COLLECTION, log.id), {
+    projectId: input.projectId,
+    projectName: input.projectName,
+    taskName: input.taskName.trim(),
+    note: input.note.trim(),
+    startTime: Timestamp.fromDate(input.startTime),
+    endTime: Timestamp.fromDate(input.endTime),
+    totalMinutes,
+    status: "completed",
+    breakStartedAt: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteTimeLog(logId: string): Promise<void> {
+  const database = requireDb();
+  await deleteDoc(doc(database, TIME_LOGS_COLLECTION, logId));
 }

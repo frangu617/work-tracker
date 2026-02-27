@@ -601,6 +601,17 @@ th {
   color: #0f172a;
 }
 
+.btn-mini {
+  padding: 0.32rem 0.56rem;
+  font-size: 0.76rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 body[data-theme="dark"] .menu-dropdown summary {
   background: #1e293b;
   border-color: #334155;

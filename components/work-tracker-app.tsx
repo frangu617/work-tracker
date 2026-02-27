@@ -8,6 +8,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import Link from "next/link";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { jsPDF } from "jspdf";
 import {
@@ -24,6 +25,7 @@ import {
   addManualLog,
   clockOut,
   createProject,
+  deleteTimeLog,
   endBreak,
   ensureUserProfile,
   saveUserProfile,
@@ -32,6 +34,7 @@ import {
   subscribeProjects,
   subscribeTimeLogs,
   subscribeUserProfile,
+  updateTimeLog,
 } from "@/lib/tracker-data";
 import {
   DEFAULT_USER_SETTINGS,
@@ -230,11 +233,20 @@ export function WorkTrackerApp() {
     toInputDateValue(new Date()),
   );
   const [showPdfExportModal, setShowPdfExportModal] = useState(false);
+  const [showEditLogModal, setShowEditLogModal] = useState(false);
+  const [logBeingEdited, setLogBeingEdited] = useState<TimeLog | null>(null);
   const [pdfStartDate, setPdfStartDate] = useState(() => toInputDateValue(new Date()));
   const [pdfEndDate, setPdfEndDate] = useState(() => toInputDateValue(new Date()));
   const [pdfFieldSelection, setPdfFieldSelection] = useState<PdfFieldSelection>(
     () => defaultPdfFieldSelection(),
   );
+  const [editStartDate, setEditStartDate] = useState(() => toInputDateValue(new Date()));
+  const [editStartTime, setEditStartTime] = useState(() => toInputTimeValue(new Date()));
+  const [editEndDate, setEditEndDate] = useState(() => toInputDateValue(new Date()));
+  const [editEndTime, setEditEndTime] = useState(() => toInputTimeValue(new Date()));
+  const [editProjectId, setEditProjectId] = useState("");
+  const [editTaskName, setEditTaskName] = useState("");
+  const [editNote, setEditNote] = useState("");
   const [now, setNow] = useState(new Date());
 
   const [hourlyRateInput, setHourlyRateInput] = useState("0");
@@ -724,6 +736,101 @@ export function WorkTrackerApp() {
     }
   }, [currentUser, darkModeEnabled, profile]);
 
+  const openEditLogModal = useCallback(
+    (log: TimeLog) => {
+      if (!log.endTime) {
+        setError("Clock out this entry before editing times.");
+        return;
+      }
+
+      setLogBeingEdited(log);
+      setEditStartDate(toInputDateValue(log.startTime));
+      setEditStartTime(toInputTimeValue(log.startTime));
+      setEditEndDate(toInputDateValue(log.endTime));
+      setEditEndTime(toInputTimeValue(log.endTime));
+      setEditTaskName(log.taskName);
+      setEditNote(log.note);
+      setEditProjectId(log.projectId ?? "");
+      setError(null);
+      setShowEditLogModal(true);
+    },
+    [],
+  );
+
+  const closeEditLogModal = useCallback(() => {
+    setShowEditLogModal(false);
+    setLogBeingEdited(null);
+  }, []);
+
+  const handleUpdateLog = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!logBeingEdited) {
+        return;
+      }
+
+      const nextStartTime = parseDateAndTime(editStartDate, editStartTime);
+      const nextEndTime = parseDateAndTime(editEndDate, editEndTime);
+      if (!nextStartTime || !nextEndTime || nextEndTime <= nextStartTime) {
+        setError("Edit requires a valid start and end time where end is after start.");
+        return;
+      }
+
+      const selectedProject = projects.find((project) => project.id === editProjectId);
+      setBusy(true);
+      setError(null);
+      try {
+        await updateTimeLog(logBeingEdited, {
+          projectId: selectedProject?.id ?? null,
+          projectName: selectedProject?.name ?? logBeingEdited.projectName,
+          taskName: editTaskName,
+          note: editNote,
+          startTime: nextStartTime,
+          endTime: nextEndTime,
+        });
+        closeEditLogModal();
+      } catch (nextError) {
+        setError(getErrorMessage(nextError));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      closeEditLogModal,
+      editEndDate,
+      editEndTime,
+      editNote,
+      editProjectId,
+      editStartDate,
+      editStartTime,
+      editTaskName,
+      logBeingEdited,
+      projects,
+    ],
+  );
+
+  const handleDeleteLog = useCallback(async (log: TimeLog) => {
+    const isConfirmed = window.confirm(
+      `Delete this entry from ${formatDateTime(log.startTime)}? This cannot be undone.`,
+    );
+    if (!isConfirmed) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteTimeLog(log.id);
+      if (logBeingEdited?.id === log.id) {
+        closeEditLogModal();
+      }
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    } finally {
+      setBusy(false);
+    }
+  }, [closeEditLogModal, logBeingEdited?.id]);
+
   const exportCsv = useCallback(() => {
     if (logs.length === 0) {
       setError("No logs available to export.");
@@ -1004,9 +1111,9 @@ export function WorkTrackerApp() {
                 >
                   {showProjectsPanel ? "Hide Projects" : "Show Projects"}
                 </button>
-                <a className="menu-item-link" href="/about">
+                <Link className="menu-item-link" href="/about">
                   About
-                </a>
+                </Link>
               </div>
             </details>
             <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
@@ -1409,6 +1516,7 @@ export function WorkTrackerApp() {
                     <th>Earnings</th>
                     <th>Status</th>
                     <th>Source</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1424,12 +1532,32 @@ export function WorkTrackerApp() {
                         <td>{formatCurrency((workedMinutes / 60) * hourlyRate, currency)}</td>
                         <td>{log.status}</td>
                         <td>{log.source}</td>
+                        <td>
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-mini"
+                              onClick={() => openEditLogModal(log)}
+                              disabled={!log.endTime || busy}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-mini"
+                              onClick={() => handleDeleteLog(log)}
+                              disabled={busy}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
                   {logs.length === 0 && (
                     <tr>
-                      <td colSpan={8}>No logs yet.</td>
+                      <td colSpan={9}>No logs yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1497,6 +1625,97 @@ export function WorkTrackerApp() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Export PDF
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {isFirebaseConfigured && currentUser && showEditLogModal && logBeingEdited && (
+        <div className="modal-overlay" role="presentation" onClick={closeEditLogModal}>
+          <section
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="log-edit-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="log-edit-title">Edit Time Entry</h2>
+            <p>Adjust start/end times or details for this past entry.</p>
+            <form onSubmit={handleUpdateLog}>
+              <div className="field-grid">
+                <label>
+                  Start Date
+                  <input
+                    type="date"
+                    value={editStartDate}
+                    onChange={(event) => setEditStartDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Start Time
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(event) => setEditStartTime(event.target.value)}
+                  />
+                </label>
+                <label>
+                  End Date
+                  <input
+                    type="date"
+                    value={editEndDate}
+                    onChange={(event) => setEditEndDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  End Time
+                  <input
+                    type="time"
+                    value={editEndTime}
+                    onChange={(event) => setEditEndTime(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Project
+                  <select
+                    value={editProjectId}
+                    onChange={(event) => setEditProjectId(event.target.value)}
+                  >
+                    <option value="">
+                      {`Keep Current (${logBeingEdited.projectName || "General"})`}
+                    </option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Task
+                  <input
+                    type="text"
+                    value={editTaskName}
+                    onChange={(event) => setEditTaskName(event.target.value)}
+                  />
+                </label>
+                <label className="full-row">
+                  Note
+                  <textarea
+                    rows={2}
+                    value={editNote}
+                    onChange={(event) => setEditNote(event.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={closeEditLogModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={busy}>
+                  Save Changes
                 </button>
               </div>
             </form>
