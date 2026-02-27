@@ -52,42 +52,57 @@ body[data-theme="dark"] {
 .tracker-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
 
+.tracker-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tracker-brand-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklab, var(--accent-2), white 72%);
+  color: color-mix(in oklab, var(--accent-2), black 35%);
+}
+
+.tracker-brand-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
 .tracker-kicker {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--accent-2);
 }
 
 .tracker-header h1 {
-  margin: 0.35rem 0;
-  font-size: clamp(1.4rem, 2.2vw, 2.1rem);
+  margin: 0.15rem 0;
+  font-size: clamp(1.25rem, 1.9vw, 1.8rem);
   line-height: 1.1;
 }
 
 .tracker-subtitle {
   margin: 0;
-  max-width: 62ch;
   color: var(--ink-2);
+  font-size: 0.82rem;
 }
 
-.account-block {
-  text-align: right;
+.header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.45rem;
-}
-
-.account-block p {
-  margin: 0;
-  color: var(--ink-2);
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .menu-dropdown {
@@ -96,14 +111,37 @@ body[data-theme="dark"] {
 
 .menu-dropdown summary {
   list-style: none;
-  cursor: pointer;
+}
+
+.menu-dropdown summary,
+.icon-button {
+  width: 2.4rem;
+  height: 2.4rem;
   border: 1px solid var(--line);
-  border-radius: 0.65rem;
+  border-radius: 0.72rem;
   background: #e2e8f0;
-  padding: 0.45rem 0.78rem;
   color: #0f172a;
-  font-size: 0.88rem;
-  font-weight: 620;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.menu-dropdown summary:hover,
+.icon-button:hover {
+  background: #d8e2f0;
+}
+
+.menu-dropdown summary:focus-visible,
+.icon-button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent-2), white 60%);
+  outline-offset: 1px;
+}
+
+.menu-dropdown summary svg,
+.icon-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .menu-dropdown summary::-webkit-details-marker {
@@ -612,10 +650,21 @@ th {
   align-items: center;
 }
 
-body[data-theme="dark"] .menu-dropdown summary {
+body[data-theme="dark"] .tracker-brand-icon {
+  background: color-mix(in oklab, var(--accent-2), black 65%);
+  color: #e0f2fe;
+}
+
+body[data-theme="dark"] .menu-dropdown summary,
+body[data-theme="dark"] .icon-button {
   background: #1e293b;
   border-color: #334155;
   color: #e2e8f0;
+}
+
+body[data-theme="dark"] .menu-dropdown summary:hover,
+body[data-theme="dark"] .icon-button:hover {
+  background: #334155;
 }
 
 body[data-theme="dark"] .menu-dropdown-items {
@@ -763,12 +812,13 @@ body[data-theme="dark"] .modal-overlay {
 
 @media (max-width: 720px) {
   .tracker-header {
-    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 
-  .account-block {
-    text-align: left;
-    align-items: flex-start;
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .field-grid,

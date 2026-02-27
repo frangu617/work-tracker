@@ -1084,18 +1084,32 @@ export function WorkTrackerApp() {
   return (
     <div className="tracker-app">
       <header className="tracker-header">
-        <div>
-          <p className="tracker-kicker">Work Tracker</p>
-          <h1>Welcome {accountDisplayName}!</h1>
+        <div className="tracker-brand">
+          <span className="tracker-brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path
+                fill="currentColor"
+                d="M12 2 2.5 6.5v11L12 22l9.5-4.5v-11L12 2Zm0 2.2 7.25 3.44L12 11.08 4.75 7.64 12 4.2Zm-7.5 5.1 6.5 3.08v7.03L4.5 16.2V9.3Zm8.5 10.13V12.4l6.5-3.08v6.9L13 19.43Z"
+              />
+            </svg>
+          </span>
+          <div>
+            <p className="tracker-kicker">App</p>
+            <h1>Work Tracker</h1>
+            {currentUser && <p className="tracker-subtitle">{accountDisplayName}</p>}
+          </div>
         </div>
         {currentUser && (
-          <div className="account-block">
-            <p>{accountDisplayName}</p>
-            <button type="button" className="btn btn-ghost" onClick={handleThemeToggle}>
-              {darkModeEnabled ? "Light Mode" : "Night Mode"}
-            </button>
+          <div className="header-actions">
             <details className="menu-dropdown">
-              <summary>Menu</summary>
+              <summary aria-label="Open menu" title="Menu">
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z"
+                  />
+                </svg>
+              </summary>
               <div className="menu-dropdown-items">
                 <button
                   type="button"
@@ -1116,8 +1130,42 @@ export function WorkTrackerApp() {
                 </Link>
               </div>
             </details>
-            <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
-              Sign Out
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleThemeToggle}
+              aria-label={darkModeEnabled ? "Switch to light mode" : "Switch to dark mode"}
+              title={darkModeEnabled ? "Light mode" : "Dark mode"}
+            >
+              {darkModeEnabled ? (
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12 17.25a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5Zm0 1.5a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 1 .75-.75Zm0-14.5a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-1.5 0V5a.75.75 0 0 1 .75-.75Zm8 7a.75.75 0 0 1 .75.75.75.75 0 0 1-.75.75h-2a.75.75 0 0 1 0-1.5h2Zm-14 0a.75.75 0 0 1 .75.75.75.75 0 0 1-.75.75H4a.75.75 0 0 1 0-1.5h2Zm10.607 4.857a.75.75 0 0 1 1.06 0l1.415 1.414a.75.75 0 0 1-1.06 1.061l-1.415-1.414a.75.75 0 0 1 0-1.061Zm-11.314 0a.75.75 0 0 1 1.06 1.06l-1.414 1.415a.75.75 0 0 1-1.061-1.06l1.415-1.415Zm11.314-8.243a.75.75 0 0 1 0-1.06l1.415-1.415a.75.75 0 1 1 1.06 1.06l-1.414 1.415a.75.75 0 0 1-1.061 0Zm-11.314 0L3.878 6.45a.75.75 0 1 1 1.06-1.06l1.415 1.414a.75.75 0 1 1-1.06 1.061Z"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12.53 2.55a.75.75 0 0 1 .22.79 8.44 8.44 0 0 0-.27 2.12A8.53 8.53 0 0 0 21 13.98c.73 0 1.44-.09 2.12-.27a.75.75 0 0 1 .84.98A11.02 11.02 0 1 1 11.55 2.33a.75.75 0 0 1 .98.22ZM11 4.13a9.52 9.52 0 1 0 9.86 9.86h-.39A10.03 10.03 0 0 1 10.45 3.97c.18 0 .36.01.55.03Z"
+                  />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                <path
+                  fill="currentColor"
+                  d="M10.75 3.75a.75.75 0 0 0 0 1.5h5.5a1 1 0 0 1 1 1v11.5a1 1 0 0 1-1 1h-5.5a.75.75 0 0 0 0 1.5h5.5a2.5 2.5 0 0 0 2.5-2.5V6.25a2.5 2.5 0 0 0-2.5-2.5h-5.5Zm1.47 12.22a.75.75 0 0 0 1.06 1.06l4.5-4.5a.75.75 0 0 0 0-1.06l-4.5-4.5a.75.75 0 1 0-1.06 1.06l3.22 3.22H3.75a.75.75 0 0 0 0 1.5h11.69l-3.22 3.22Z"
+                />
+              </svg>
             </button>
           </div>
         )}
