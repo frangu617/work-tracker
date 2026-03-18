@@ -5,6 +5,7 @@ Next.js + Firebase work-hour tracker with:
 - One-tap clock in/out
 - Break tracker (pause/resume)
 - Manual log entry
+- Sick day markers
 - Project and task categorization
 - Earnings calculator (hourly rate + currency)
 - 7-day chart report (Recharts)
@@ -76,6 +77,7 @@ Also used:
 - `breaks: [{ startTime, endTime, durationMinutes }]`
 - `note: string`
 - `status: "completed" | "active" | "on-break"`
+- `entryType: "work" | "sick-day"`
 - `location: { latitude, longitude, accuracy, capturedAt } | null`
 - `source: "timer" | "manual"`
 

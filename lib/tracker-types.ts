@@ -1,5 +1,6 @@
 export type SupportedCurrency = "USD" | "EUR" | "GBP" | "CAD";
 export type LogStatus = "completed" | "active" | "on-break";
+export type LogEntryType = "work" | "sick-day";
 export type LogSource = "timer" | "manual";
 
 export interface GeoTag {
@@ -51,6 +52,7 @@ export interface TimeLog {
   breaks: BreakRecord[];
   note: string;
   status: LogStatus;
+  entryType: LogEntryType;
   location: GeoTag | null;
   breakStartedAt: Date | null;
   source: LogSource;
@@ -77,6 +79,7 @@ export interface ManualLogInput {
   location: GeoTag | null;
   startTime: Date;
   endTime: Date;
+  entryType: LogEntryType;
 }
 
 export interface UpdateTimeLogInput {

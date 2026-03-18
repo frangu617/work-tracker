@@ -380,6 +380,15 @@ select:focus {
   margin: 0;
 }
 
+.manual-entry-hint {
+  margin: 0;
+  border: 1px solid color-mix(in oklab, var(--accent), transparent 55%);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: color-mix(in oklab, #fff7ed, var(--white) 25%);
+  color: var(--ink-2);
+}
+
 .earnings-line {
   margin: 0.8rem 0 0;
   color: var(--ink-2);
@@ -528,6 +537,10 @@ select:focus {
 
 .calendar-day.has-work {
   background: color-mix(in oklab, #dcfce7, var(--white) 58%);
+}
+
+.calendar-day.has-sick-day {
+  background: color-mix(in oklab, #ffedd5, var(--white) 42%);
 }
 
 .calendar-day-number {
@@ -703,6 +716,10 @@ body[data-theme="dark"] .calendar-day.has-work {
   background: color-mix(in oklab, #14532d, var(--white) 72%);
 }
 
+body[data-theme="dark"] .calendar-day.has-sick-day {
+  background: color-mix(in oklab, #7c2d12, var(--white) 82%);
+}
+
 body[data-theme="dark"] .warning code {
   background: #3f1d10;
   color: #fed7aa;
@@ -718,6 +735,11 @@ body[data-theme="dark"] .settings-toast {
   background: #113320;
   border-color: #166534;
   color: #bbf7d0;
+}
+
+body[data-theme="dark"] .manual-entry-hint {
+  background: color-mix(in oklab, #3f1d10, var(--white) 82%);
+  border-color: color-mix(in oklab, #fdba74, transparent 55%);
 }
 
 .modal-overlay {

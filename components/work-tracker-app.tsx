@@ -40,6 +40,7 @@ import {
   DEFAULT_USER_SETTINGS,
   PROJECT_COLOR_PRESETS,
   SUPPORTED_CURRENCIES,
+  type LogEntryType,
   type TimeLog,
   type UserProfile,
 } from "@/lib/tracker-types";
@@ -52,8 +53,12 @@ import {
   formatDate,
   formatDateTime,
   formatDuration,
+  formatLogEntryType,
+  formatLogStatus,
   formatTime,
   getLogMinutes,
+  getLogTaskLabel,
+  isSickDayEntry,
   parseDateAndTime,
   toDayKey,
   toInputDateValue,
@@ -64,6 +69,7 @@ const IDLE_CHECK_INTERVAL_MS = 30_000;
 
 const PDF_FIELD_OPTIONS = [
   { key: "date", label: "Date" },
+  { key: "entryType", label: "Entry Type" },
   { key: "timeIn", label: "Time In" },
   { key: "timeOut", label: "Time Out" },
   { key: "duration", label: "Duration" },
@@ -89,9 +95,28 @@ type WorkWeekGroup = {
   totalMinutes: number;
 };
 
+type DaySummary = {
+  minutes: number;
+  workSessions: number;
+  sickDays: number;
+  firstIn: Date | null;
+  lastOut: Date | null;
+};
+
+function createEmptyDaySummary(): DaySummary {
+  return {
+    minutes: 0,
+    workSessions: 0,
+    sickDays: 0,
+    firstIn: null,
+    lastOut: null,
+  };
+}
+
 function defaultPdfFieldSelection(): PdfFieldSelection {
   return {
     date: true,
+    entryType: true,
     timeIn: true,
     timeOut: true,
     duration: true,
@@ -271,6 +296,7 @@ export function WorkTrackerApp() {
   const [manualProjectId, setManualProjectId] = useState("");
   const [manualTaskName, setManualTaskName] = useState("");
   const [manualNote, setManualNote] = useState("");
+  const [manualEntryType, setManualEntryType] = useState<LogEntryType>("work");
 
   const lastActivityRef = useRef(Date.now());
   const idlePromptedRef = useRef(false);
@@ -428,24 +454,22 @@ export function WorkTrackerApp() {
   }, [calendarMonth]);
 
   const daySummaryByKey = useMemo(() => {
-    const summary = new Map<
-      string,
-      { minutes: number; sessions: number; firstIn: Date | null; lastOut: Date | null }
-    >();
+    const summary = new Map<string, DaySummary>();
 
     for (const log of logs) {
       const dayKey = toDayKey(log.startTime);
+      const existing = summary.get(dayKey) ?? createEmptyDaySummary();
+
+      if (isSickDayEntry(log)) {
+        existing.sickDays += 1;
+        summary.set(dayKey, existing);
+        continue;
+      }
+
       const workedMinutes = getLogMinutes(log, now);
       const endTime = log.endTime ?? now;
-      const existing = summary.get(dayKey) ?? {
-        minutes: 0,
-        sessions: 0,
-        firstIn: null,
-        lastOut: null,
-      };
-
       existing.minutes += workedMinutes;
-      existing.sessions += 1;
+      existing.workSessions += 1;
       if (!existing.firstIn || log.startTime < existing.firstIn) {
         existing.firstIn = log.startTime;
       }
@@ -462,19 +486,13 @@ export function WorkTrackerApp() {
   const lastSevenDaysSessions = useMemo(() => {
     let sessions = 0;
     for (const day of reportData) {
-      sessions += daySummaryByKey.get(day.dayKey)?.sessions ?? 0;
+      sessions += daySummaryByKey.get(day.dayKey)?.workSessions ?? 0;
     }
     return sessions;
   }, [daySummaryByKey, reportData]);
 
   const selectedDaySummary = useMemo(
-    () =>
-      daySummaryByKey.get(selectedCalendarDate) ?? {
-        minutes: 0,
-        sessions: 0,
-        firstIn: null,
-        lastOut: null,
-      },
+    () => daySummaryByKey.get(selectedCalendarDate) ?? createEmptyDaySummary(),
     [daySummaryByKey, selectedCalendarDate],
   );
   const selectedCalendarDateLabel = useMemo(() => {
@@ -648,28 +666,55 @@ export function WorkTrackerApp() {
       if (!currentUser) {
         return;
       }
-      const startTime = parseDateAndTime(manualDate, manualStartTime);
-      const endTime = parseDateAndTime(manualDate, manualEndTime);
-      if (!startTime || !endTime || endTime <= startTime) {
-        setError("Manual log needs a valid date and an end time after start time.");
+      let startTime: Date | null = null;
+      let endTime: Date | null = null;
+      let projectId: string | null = null;
+      let projectName = "";
+      let taskName = "";
+
+      if (manualEntryType === "sick-day") {
+        startTime = new Date(`${manualDate}T12:00:00`);
+        if (Number.isNaN(startTime.getTime())) {
+          setError("Sick day needs a valid date.");
+          return;
+        }
+        endTime = startTime;
+      } else {
+        startTime = parseDateAndTime(manualDate, manualStartTime);
+        endTime = parseDateAndTime(manualDate, manualEndTime);
+        if (!startTime || !endTime || endTime <= startTime) {
+          setError("Manual log needs a valid date and an end time after start time.");
+          return;
+        }
+
+        const selectedProject = projects.find((project) => project.id === manualProjectId);
+        projectId = selectedProject?.id ?? null;
+        projectName = selectedProject?.name ?? "General";
+        taskName = manualTaskName;
+      }
+
+      if (!startTime || !endTime) {
+        setError("Manual log needs a valid date.");
         return;
       }
-      const selectedProject = projects.find((project) => project.id === manualProjectId);
+
       setBusy(true);
       setError(null);
       try {
         await addManualLog({
           userId: currentUser.uid,
-          projectId: selectedProject?.id ?? null,
-          projectName: selectedProject?.name ?? "General",
-          taskName: manualTaskName,
+          projectId,
+          projectName,
+          taskName,
           note: manualNote,
           location: null,
           startTime,
           endTime,
+          entryType: manualEntryType,
         });
         setManualTaskName("");
         setManualNote("");
+        setManualEntryType("work");
       } catch (nextError) {
         setError(getErrorMessage(nextError));
       } finally {
@@ -680,6 +725,7 @@ export function WorkTrackerApp() {
       currentUser,
       manualDate,
       manualEndTime,
+      manualEntryType,
       manualNote,
       manualProjectId,
       manualStartTime,
@@ -738,6 +784,11 @@ export function WorkTrackerApp() {
 
   const openEditLogModal = useCallback(
     (log: TimeLog) => {
+      if (isSickDayEntry(log)) {
+        setError("Sick day entries can be deleted and re-added instead of edited.");
+        return;
+      }
+
       if (!log.endTime) {
         setError("Clock out this entry before editing times.");
         return;
@@ -840,6 +891,7 @@ export function WorkTrackerApp() {
     const groupedLogs = groupLogsByWorkWeek(logs, now);
     const header = [
       "Date",
+      "Entry Type",
       "Project",
       "Task",
       "Start",
@@ -863,17 +915,22 @@ export function WorkTrackerApp() {
 
       for (const log of group.logs) {
         const workedMinutes = getLogMinutes(log, now);
-        const earnings = formatCurrency((workedMinutes / 60) * hourlyRate, currency);
+        const earnings = isSickDayEntry(log)
+          ? "-"
+          : formatCurrency((workedMinutes / 60) * hourlyRate, currency);
         rows.push(
           [
             csvEscape(formatDate(log.startTime)),
-            csvEscape(log.projectName),
-            csvEscape(log.taskName || "-"),
-            csvEscape(formatDateTime(log.startTime)),
-            csvEscape(log.endTime ? formatDateTime(log.endTime) : "-"),
+            csvEscape(formatLogEntryType(log.entryType)),
+            csvEscape(log.projectName || "-"),
+            csvEscape(getLogTaskLabel(log)),
+            csvEscape(isSickDayEntry(log) ? "-" : formatDateTime(log.startTime)),
+            csvEscape(
+              isSickDayEntry(log) || !log.endTime ? "-" : formatDateTime(log.endTime),
+            ),
             workedMinutes.toString(),
             log.breakMinutes.toString(),
-            csvEscape(log.status),
+            csvEscape(formatLogStatus(log)),
             csvEscape(log.source),
             csvEscape(earnings),
             csvEscape(log.note || ""),
@@ -884,6 +941,7 @@ export function WorkTrackerApp() {
       rows.push(
         [
           csvEscape("Week Total"),
+          "",
           "",
           "",
           "",
@@ -1016,23 +1074,30 @@ export function WorkTrackerApp() {
             switch (fieldOption.key) {
               case "date":
                 return `${fieldOption.label}: ${formatDate(log.startTime)}`;
+              case "entryType":
+                return `${fieldOption.label}: ${formatLogEntryType(log.entryType)}`;
               case "timeIn":
-                return `${fieldOption.label}: ${formatTime(log.startTime)}`;
+                return `${fieldOption.label}: ${isSickDayEntry(log) ? "-" : formatTime(log.startTime)}`;
               case "timeOut":
-                return `${fieldOption.label}: ${log.endTime ? formatTime(log.endTime) : "-"}`;
+                return `${fieldOption.label}: ${
+                  isSickDayEntry(log) || !log.endTime ? "-" : formatTime(log.endTime)
+                }`;
               case "duration":
-                return `${fieldOption.label}: ${formatDuration(workedMinutes)}`;
+                return `${fieldOption.label}: ${
+                  isSickDayEntry(log) ? "Sick Day" : formatDuration(workedMinutes)
+                }`;
               case "project":
-                return `${fieldOption.label}: ${log.projectName}`;
+                return `${fieldOption.label}: ${log.projectName || "-"}`;
               case "task":
-                return `${fieldOption.label}: ${log.taskName || "-"}`;
+                return `${fieldOption.label}: ${getLogTaskLabel(log)}`;
               case "status":
-                return `${fieldOption.label}: ${log.status}`;
+                return `${fieldOption.label}: ${formatLogStatus(log)}`;
               case "earnings":
-                return `${fieldOption.label}: ${formatCurrency(
-                  (workedMinutes / 60) * hourlyRate,
-                  currency,
-                )}`;
+                return `${fieldOption.label}: ${
+                  isSickDayEntry(log)
+                    ? "-"
+                    : formatCurrency((workedMinutes / 60) * hourlyRate, currency)
+                }`;
               case "note":
                 return `${fieldOption.label}: ${log.note || "-"}`;
               default:
@@ -1324,19 +1389,24 @@ export function WorkTrackerApp() {
                 const summary = daySummaryByKey.get(dayKey);
                 const isSelected = selectedCalendarDate === dayKey;
                 const hasWorkedTime = (summary?.minutes ?? 0) > 0;
+                const hasSickDay = (summary?.sickDays ?? 0) > 0;
 
                 return (
                   <button
                     type="button"
                     key={cell.key}
                     className={`calendar-day${isSelected ? " selected" : ""}${
-                      hasWorkedTime ? " has-work" : ""
+                      hasWorkedTime ? " has-work" : hasSickDay ? " has-sick-day" : ""
                     }`}
                     onClick={() => setSelectedCalendarDate(dayKey)}
                   >
                     <span className="calendar-day-number">{cell.date.getDate()}</span>
                     <span className="calendar-day-minutes">
-                      {hasWorkedTime ? formatDuration(summary?.minutes ?? 0) : "-"}
+                      {hasWorkedTime
+                        ? formatDuration(summary?.minutes ?? 0)
+                        : hasSickDay
+                          ? "Sick Day"
+                          : "-"}
                     </span>
                   </button>
                 );
@@ -1348,7 +1418,10 @@ export function WorkTrackerApp() {
                 Worked: <strong>{formatDuration(selectedDaySummary.minutes)}</strong>
               </p>
               <p>
-                Sessions: <strong>{selectedDaySummary.sessions}</strong>
+                Work Sessions: <strong>{selectedDaySummary.workSessions}</strong>
+              </p>
+              <p>
+                Sick Day Entries: <strong>{selectedDaySummary.sickDays}</strong>
               </p>
               <p>
                 Time In: <strong>{selectedDaySummary.firstIn ? formatTime(selectedDaySummary.firstIn) : "-"}</strong>
@@ -1465,54 +1538,72 @@ export function WorkTrackerApp() {
             <h2>Manual Log</h2>
             <form className="field-grid" onSubmit={handleManualSubmit}>
               <label>
-                Date
-                <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />
-              </label>
-              <label>
-                Start
-                <input
-                  type="time"
-                  value={manualStartTime}
-                  onChange={(event) => setManualStartTime(event.target.value)}
-                />
-              </label>
-              <label>
-                End
-                <input
-                  type="time"
-                  value={manualEndTime}
-                  onChange={(event) => setManualEndTime(event.target.value)}
-                />
-              </label>
-              <label>
-                Project
+                Entry Type
                 <select
-                  value={manualProjectId}
-                  onChange={(event) => setManualProjectId(event.target.value)}
+                  value={manualEntryType}
+                  onChange={(event) => setManualEntryType(event.target.value as LogEntryType)}
                 >
-                  {projects.length === 0 && <option value="">General</option>}
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
+                  <option value="work">Work Session</option>
+                  <option value="sick-day">Sick Day</option>
                 </select>
               </label>
               <label>
-                Task
-                <input
-                  type="text"
-                  value={manualTaskName}
-                  onChange={(event) => setManualTaskName(event.target.value)}
-                />
+                Date
+                <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />
               </label>
+              {manualEntryType === "work" ? (
+                <>
+                  <label>
+                    Start
+                    <input
+                      type="time"
+                      value={manualStartTime}
+                      onChange={(event) => setManualStartTime(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    End
+                    <input
+                      type="time"
+                      value={manualEndTime}
+                      onChange={(event) => setManualEndTime(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Project
+                    <select
+                      value={manualProjectId}
+                      onChange={(event) => setManualProjectId(event.target.value)}
+                    >
+                      {projects.length === 0 && <option value="">General</option>}
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Task
+                    <input
+                      type="text"
+                      value={manualTaskName}
+                      onChange={(event) => setManualTaskName(event.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="manual-entry-hint full-row">
+                  Sick day entries are date-only markers and export as Sick Day.
+                </p>
+              )}
               <label className="full-row">
                 Note
                 <textarea rows={2} value={manualNote} onChange={(event) => setManualNote(event.target.value)} />
               </label>
               <div className="full-row">
                 <button type="submit" className="btn btn-primary" disabled={busy}>
-                  Add Manual Entry
+                  {manualEntryType === "sick-day" ? "Add Sick Day" : "Add Manual Entry"}
                 </button>
               </div>
             </form>
@@ -1573,12 +1664,16 @@ export function WorkTrackerApp() {
                     return (
                       <tr key={log.id}>
                         <td>{formatDate(log.startTime)}</td>
-                        <td>{log.projectName}</td>
-                        <td>{log.taskName || "-"}</td>
-                        <td>{formatDuration(workedMinutes)}</td>
-                        <td>{formatDuration(log.breakMinutes)}</td>
-                        <td>{formatCurrency((workedMinutes / 60) * hourlyRate, currency)}</td>
-                        <td>{log.status}</td>
+                        <td>{log.projectName || "-"}</td>
+                        <td>{getLogTaskLabel(log)}</td>
+                        <td>{isSickDayEntry(log) ? "Sick Day" : formatDuration(workedMinutes)}</td>
+                        <td>{isSickDayEntry(log) ? "-" : formatDuration(log.breakMinutes)}</td>
+                        <td>
+                          {isSickDayEntry(log)
+                            ? "-"
+                            : formatCurrency((workedMinutes / 60) * hourlyRate, currency)}
+                        </td>
+                        <td>{formatLogStatus(log)}</td>
                         <td>{log.source}</td>
                         <td>
                           <div className="row-actions">
@@ -1586,7 +1681,7 @@ export function WorkTrackerApp() {
                               type="button"
                               className="btn btn-ghost btn-mini"
                               onClick={() => openEditLogModal(log)}
-                              disabled={!log.endTime || busy}
+                              disabled={!log.endTime || isSickDayEntry(log) || busy}
                             >
                               Edit
                             </button>

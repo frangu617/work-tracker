@@ -21,6 +21,7 @@ import {
   SUPPORTED_CURRENCIES,
   type BreakRecord,
   type GeoTag,
+  type LogEntryType,
   type LogStatus,
   type ManualLogInput,
   type StartTimerInput,
@@ -114,6 +115,13 @@ function normalizeStatus(value: unknown): LogStatus {
   return "completed";
 }
 
+function normalizeEntryType(value: unknown): LogEntryType {
+  if (value === "sick-day") {
+    return "sick-day";
+  }
+  return "work";
+}
+
 function normalizeBreaks(value: unknown): BreakRecord[] {
   if (!Array.isArray(value)) {
     return [];
@@ -199,6 +207,7 @@ function normalizeTimeLog(id: string, data: DocumentData): TimeLog {
     breaks: normalizeBreaks(data.breaks),
     note: readString(data.note),
     status: normalizeStatus(data.status),
+    entryType: normalizeEntryType(data.entryType),
     location: normalizeLocation(data.location),
     breakStartedAt: readDate(data.breakStartedAt),
     source: data.source === "manual" ? "manual" : "timer",
@@ -358,6 +367,7 @@ export async function startTimerLog(input: StartTimerInput): Promise<void> {
     breaks: [],
     note: input.note.trim(),
     status: "active",
+    entryType: "work",
     location: input.location,
     breakStartedAt: null,
     source: "timer",
@@ -368,10 +378,13 @@ export async function startTimerLog(input: StartTimerInput): Promise<void> {
 
 export async function addManualLog(input: ManualLogInput): Promise<void> {
   const database = requireDb();
-  const durationMinutes = Math.max(
-    0,
-    Math.floor((input.endTime.getTime() - input.startTime.getTime()) / 60_000),
-  );
+  const durationMinutes =
+    input.entryType === "sick-day"
+      ? 0
+      : Math.max(
+          0,
+          Math.floor((input.endTime.getTime() - input.startTime.getTime()) / 60_000),
+        );
 
   await addDoc(collection(database, TIME_LOGS_COLLECTION), {
     userId: input.userId,
@@ -385,6 +398,7 @@ export async function addManualLog(input: ManualLogInput): Promise<void> {
     breaks: [],
     note: input.note.trim(),
     status: "completed",
+    entryType: input.entryType,
     location: input.location,
     breakStartedAt: null,
     source: "manual",

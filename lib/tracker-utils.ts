@@ -1,5 +1,6 @@
 import type {
   DailyReportPoint,
+  LogEntryType,
   SupportedCurrency,
   TimeLog,
 } from "@/lib/tracker-types";
@@ -79,7 +80,17 @@ export function toDayKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function isSickDayEntry(
+  log: Pick<TimeLog, "entryType"> | { entryType: LogEntryType },
+): boolean {
+  return log.entryType === "sick-day";
+}
+
 export function calculateWorkedMilliseconds(log: TimeLog, now: Date = new Date()): number {
+  if (isSickDayEntry(log)) {
+    return 0;
+  }
+
   const end = log.endTime ?? now;
   const durationMs = Math.max(0, end.getTime() - log.startTime.getTime());
   const storedBreakMs = Math.max(0, log.breakMinutes) * 60_000;
@@ -121,7 +132,38 @@ export function formatCurrency(amount: number, currency: SupportedCurrency): str
   }).format(amount);
 }
 
+export function formatLogEntryType(entryType: LogEntryType): string {
+  return entryType === "sick-day" ? "Sick Day" : "Work";
+}
+
+export function formatLogStatus(log: Pick<TimeLog, "entryType" | "status">): string {
+  if (isSickDayEntry(log)) {
+    return "Sick Day";
+  }
+
+  switch (log.status) {
+    case "active":
+      return "Active";
+    case "on-break":
+      return "On Break";
+    default:
+      return "Completed";
+  }
+}
+
+export function getLogTaskLabel(log: Pick<TimeLog, "entryType" | "taskName">): string {
+  if (isSickDayEntry(log)) {
+    return "Sick Day";
+  }
+
+  return log.taskName || "-";
+}
+
 export function getLogMinutes(log: TimeLog, now: Date = new Date()): number {
+  if (isSickDayEntry(log)) {
+    return 0;
+  }
+
   if (log.endTime) {
     return Math.max(log.totalMinutes, calculateWorkedMinutes(log, now));
   }
