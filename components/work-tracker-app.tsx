@@ -1648,13 +1648,9 @@ export function WorkTrackerApp() {
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Project</th>
-                    <th>Task</th>
-                    <th>Duration</th>
-                    <th>Break</th>
-                    <th>Earnings</th>
-                    <th>Status</th>
-                    <th>Source</th>
+                    <th>Clock In</th>
+                    <th>Clock Out</th>
+                    <th>Total Time</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1664,17 +1660,9 @@ export function WorkTrackerApp() {
                     return (
                       <tr key={log.id}>
                         <td>{formatDate(log.startTime)}</td>
-                        <td>{log.projectName || "-"}</td>
-                        <td>{getLogTaskLabel(log)}</td>
+                        <td>{isSickDayEntry(log) ? "-" : formatTime(log.startTime)}</td>
+                        <td>{isSickDayEntry(log) || !log.endTime ? "-" : formatTime(log.endTime)}</td>
                         <td>{isSickDayEntry(log) ? "Sick Day" : formatDuration(workedMinutes)}</td>
-                        <td>{isSickDayEntry(log) ? "-" : formatDuration(log.breakMinutes)}</td>
-                        <td>
-                          {isSickDayEntry(log)
-                            ? "-"
-                            : formatCurrency((workedMinutes / 60) * hourlyRate, currency)}
-                        </td>
-                        <td>{formatLogStatus(log)}</td>
-                        <td>{log.source}</td>
                         <td>
                           <div className="row-actions">
                             <button
@@ -1700,7 +1688,7 @@ export function WorkTrackerApp() {
                   })}
                   {logs.length === 0 && (
                     <tr>
-                      <td colSpan={9}>No logs yet.</td>
+                      <td colSpan={5}>No logs yet.</td>
                     </tr>
                   )}
                 </tbody>

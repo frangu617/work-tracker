@@ -246,6 +246,7 @@ export async function ensureUserProfile(
     {
       email: email ?? "",
       displayName: displayName ?? "",
+      role: existing.data()?.role ?? "user",
       updatedAt: serverTimestamp(),
     },
     { merge: true },
