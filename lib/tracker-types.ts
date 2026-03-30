@@ -23,12 +23,15 @@ export interface UserSettings {
   idleMinutes: number;
 }
 
+export type UserRole = "user" | "admin";
+
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   hourlyRate: number;
   settings: UserSettings;
+  role: UserRole;
 }
 
 export interface TimeProject {

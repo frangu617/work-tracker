@@ -171,12 +171,14 @@ function normalizeLocation(value: unknown): GeoTag | null {
 }
 
 function normalizeUser(uid: string, data: DocumentData | undefined): UserProfile {
+  const role = data?.role === "admin" ? "admin" : "user";
   return {
     uid,
     email: readString(data?.email),
     displayName: readString(data?.displayName),
     hourlyRate: Math.max(0, readNumber(data?.hourlyRate)),
     settings: normalizeSettings(data?.settings),
+    role,
   };
 }
 
@@ -232,6 +234,7 @@ export async function ensureUserProfile(
       displayName: displayName ?? "",
       hourlyRate: 0,
       settings: DEFAULT_USER_SETTINGS,
+      role: "user",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
